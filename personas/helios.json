@@ -25,10 +25,10 @@
   "reply_style_preference": [
     "one_sentence_quip_max_10_words",
     "short_question_max_15_words",
-    "long_question_max_100_words",
-    "reply_max_100_words",
+    "long_question_max_80_words",
+    "reply_max_70_words",
     "sarcastic_remark_max_80_words",
-    "inspirational_view_max_100_words",
+    "inspirational_view_max_80_words",
     "weary_dismissal_max_1_sentence",
     "satirical_exaggeration_max_70_words",
     "detailed_paragraph_max_100_words"
