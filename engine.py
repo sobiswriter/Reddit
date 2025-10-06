@@ -35,9 +35,11 @@ def execute_query(query, params=(), fetch=None):
 def add_post_to_db(subreddit, author, title, content):
     query = "INSERT INTO posts (subreddit, author_name, title, content) VALUES (?, ?, ?, ?)"
     return execute_query(query, (subreddit, author, title, content))
-def add_comment_to_db(post_id, author, content):
-    query = "INSERT INTO comments (post_id, author_name, content) VALUES (?, ?, ?)"
-    return execute_query(query, (post_id, author, content))
+# UPDATED: Now includes parent_comment_id
+def add_comment_to_db(post_id, author, content, parent_comment_id=None):
+    query = "INSERT INTO comments (post_id, author_name, content, parent_comment_id) VALUES (?, ?, ?, ?)"
+    return execute_query(query, (post_id, author, content, parent_comment_id))
+
 def mark_comment_as_read(comment_id):
     query = "UPDATE comments SET is_read = 1 WHERE id = ?"
     execute_query(query, (comment_id,))
@@ -61,6 +63,11 @@ def check_for_notifications(persona):
         ORDER BY c.timestamp DESC LIMIT 1
     """
     return execute_query(query, (persona['name'], persona['name']), fetch='one')
+
+# NEW: Function to get comments on a post to enable replies
+def get_comments_on_post(post_id):
+    query = "SELECT id, author_name, content FROM comments WHERE post_id = ? ORDER BY timestamp DESC LIMIT 10"
+    return execute_query(query, (post_id,), fetch='all')
 
 # --- THE AUTONOMOUS ENGINE LOOP ---
 def engine_loop():
@@ -114,7 +121,7 @@ def engine_loop():
                 print(f"-> {persona_name} replied to {commenter_name}.")
                 time.sleep(1)
                 
-            # "SCROLLING" and "FOLLOWING THREADS"
+            # 2. UPGRADED "SCROLLING" LOGIC
             elif random.random() < current_persona.get('activity_level', 0.5):
                 print(f"-> {persona_name} decides to scroll...")
                 posts_to_scroll = get_posts_for_scrolling(current_persona)
@@ -124,18 +131,47 @@ def engine_loop():
                     post_id, author, title, content = post_to_read
                     print(f"-> {persona_name} is reading '{title}' by {author}.")
                     
-                    # 50% chance to engage with a post they are reading
+                    # --- NEW: THREADED REPLY LOGIC ---
+                    comments_on_post = get_comments_on_post(post_id)
+                    reply_target = None # Will be either a post or another comment
+                    
+                    # 50% chance to engage with this thread
                     if random.random() < 0.5:
-                        # Smart Director Logic for choosing how to comment
-                        chosen_style = random.choice(current_persona['reply_style_preference'])
-                        chosen_tactic = random.choice(current_persona['possible_tactics'])
-                        print(f"  (Style: {chosen_style}, Tactic: {chosen_tactic})")
+                        # 70% chance to reply to a comment, 30% chance to reply to the main post
+                        if comments_on_post and random.random() < 0.7:
+                            # Reply to a comment
+                            target_comment = random.choice(comments_on_post)
+                            # Prevents replying to self
+                            if target_comment['author_name'] != persona_name:
+                                reply_target = 'comment'
+                                target_id = target_comment['id']
+                                target_author = target_comment['author_name']
+                                target_content = target_comment['content']
+                                print(f"  -> Decides to reply to a comment by {target_author}.")
+                        else:
+                            # Reply to the main post
+                            reply_target = 'post'
+                            target_id = post_id
+                            target_author = author
+                            target_content = content
+                            print(f"  -> Decides to reply to the main post by {author}.")
 
-                        prompt = f"You are commenting on a post titled '{title}' by {author} which says: '{content}'.\nYour Task: Write a reply using style '{chosen_style}' and tactic '{chosen_tactic}'."
-                        comment_content = get_ai_response(current_persona, prompt)
-                        add_comment_to_db(post_id, persona_name, comment_content)
-                        print(f"-> {persona_name} commented on {author}'s post.")
-                        time.sleep(1)
+                        if reply_target:
+                            # Smart Director Logic for choosing style and tactic
+                            chosen_style = random.choice(current_persona['reply_style_preference'])
+                            chosen_tactic = random.choice(current_persona['possible_tactics'])
+                            print(f"  (Style: {chosen_style}, Tactic: {chosen_tactic})")
+
+                            prompt = f"You are in a thread titled '{title}'. You are replying to a {reply_target} from {target_author} that says: '{target_content}'.\nYour Task: Write a direct reply using style '{chosen_style}' and tactic '{chosen_tactic}'."
+                            comment_content = get_ai_response(current_persona, prompt)
+                            
+                            if reply_target == 'post':
+                                add_comment_to_db(post_id, persona_name, comment_content)
+                            else: # It's a reply to a comment
+                                add_comment_to_db(post_id, persona_name, comment_content, parent_comment_id=target_id)
+                            
+                            print(f"-> {persona_name} posted a reply in the thread.")
+                            time.sleep(1)
 
             if not action_taken:
                 print(f"-> {persona_name} decides to lurk.")

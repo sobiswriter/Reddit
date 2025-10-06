@@ -2,7 +2,7 @@ import streamlit as st
 import sqlite3
 import os
 import time
-
+# btw the file is called window.py because "app" is a reserved word in default simulator setup
 # --- DATABASE HELPER FUNCTIONS ---
 # These functions will read from the world.db file created by engine.py
 
@@ -28,12 +28,36 @@ def get_posts_for_subreddit(subreddit):
     conn.close()
     return posts
 
-def get_comments_for_post(post_id):
-    """Fetches all comments for a specific post, ordered by time."""
+# UPDATED: Fetches and organizes comments into a threaded structure
+def get_comments_for_post_threaded(post_id):
     conn = get_db_connection()
-    comments = conn.execute('SELECT * FROM comments WHERE post_id = ? ORDER BY timestamp ASC', (post_id,)).fetchall()
+    comments_raw = conn.execute('SELECT * FROM comments WHERE post_id = ? ORDER BY timestamp ASC', (post_id,)).fetchall()
     conn.close()
-    return comments
+    
+    comments_by_id = {c['id']: dict(c) for c in comments_raw}
+    threaded_comments = []
+    
+    for cid, comment in comments_by_id.items():
+        if comment['parent_comment_id'] is None:
+            threaded_comments.append(comment)
+        else:
+            parent = comments_by_id.get(comment['parent_comment_id'])
+            if parent:
+                if 'replies' not in parent:
+                    parent['replies'] = []
+                parent['replies'].append(comment)
+                
+    return threaded_comments
+
+# NEW: A function to display comments recursively
+def display_comment_thread(comments, level=0):
+    for comment in comments:
+        with st.chat_message(name=comment['author_name']):
+            # Indent replies to show nesting
+            st.markdown(f"{'<blockquote>' * level}{comment['content']}{'</blockquote>' * level}", unsafe_allow_html=True)
+        
+        if 'replies' in comment:
+            display_comment_thread(comment['replies'], level + 1)
 
 # --- STREAMLIT FRONT-END ---
 st.set_page_config(layout="wide", page_title="Genesis Chamber")
@@ -58,30 +82,25 @@ auto_refresh = st.sidebar.checkbox("Auto-refresh every 10 seconds", value=True)
 # --- MAIN DISPLAY AREA ---
 if selected_subreddit:
     st.header(f"Viewing posts in r/{selected_subreddit}")
-    
     posts = get_posts_for_subreddit(selected_subreddit)
     
     if not posts:
         st.info("No posts in this subreddit yet.")
     else:
         for post in posts:
-            # Using an expander for each post creates a clean, Reddit-like thread view
             with st.expander(f"**{post['title']}** (posted by *{post['author_name']}*)"):
-                # Display the main post content
                 with st.chat_message(name=post['author_name']):
                     st.markdown(post['content'])
                 
                 st.markdown("---")
                 st.markdown("##### Comments")
 
-                # Display comments for this post
-                comments = get_comments_for_post(post['id'])
-                if not comments:
+                # UPDATED: Use the new threaded display function
+                threaded_comments = get_comments_for_post_threaded(post['id'])
+                if not threaded_comments:
                     st.write("*No comments yet...*")
                 else:
-                    for comment in comments:
-                        with st.chat_message(name=comment['author_name']):
-                            st.markdown(comment['content'])
+                    display_comment_thread(threaded_comments)
 else:
     st.info("Waiting for the simulation to generate content...")
 
