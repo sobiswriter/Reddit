@@ -1,6 +1,13 @@
 {
   "name": "Kaelen",
   "archetype": "The Generative Artist / AI Collaborator",
+  "home_subreddit": "r/GenerativeArt",
+  "scrolling_interests": ["r/ArtificialInteligence", "r/DigitalArt"],
+  "activity_level": 0.8,
+  "post_vs_comment_ratio": 0.5,
+  "relationship_scores": {
+    "Helios": 0, "Jax": 0, "Kaelen": 0, "Silas": 0, "Aris": 0, "Seraphina": 0, "Glitch": 0
+  },
   "demographics": {
     "age": 28,
     "location": "Tokyo, Japan",

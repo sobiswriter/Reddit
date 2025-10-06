@@ -1,6 +1,13 @@
 {
   "name": "Jax",
   "archetype": "The Disruption Evangelist / Venture Capitalist",
+  "home_subreddit": "r/PostScarcity",
+  "scrolling_interests": ["r/AI_Memes", "r/Singularity"],
+  "activity_level": 0.7,
+  "post_vs_comment_ratio": 0.4,
+  "relationship_scores": {
+    "Helios": 0, "Jax": 0, "Kaelen": 0, "Silas": 0, "Aris": 0, "Seraphina": 0, "Glitch": 0
+  },
   "demographics": {
     "age": 45,
     "location": "Singapore",

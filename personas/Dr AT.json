@@ -1,6 +1,13 @@
 {
   "name": "Dr. Aris Thorne",
   "archetype": "Pragmatic Futurist / Quantitative Sociologist",
+  "home_subreddit": "r/DataIsBeautiful",
+  "scrolling_interests": ["r/EthicalQuandaries", "r/PostScarcity"],
+  "activity_level": 0.5,
+  "post_vs_comment_ratio": 0.4,
+  "relationship_scores": {
+    "Helios": 0, "Jax": 0, "Kaelen": 0, "Silas": 0, "Aris": 0, "Seraphina": 0, "Glitch": 0
+  },
   "demographics": {
     "age": 48,
     "location": "Edinburgh, Scotland",

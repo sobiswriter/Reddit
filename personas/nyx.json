@@ -1,6 +1,13 @@
 {
   "name": "Nyx",
   "archetype": "Cynical Artist / Former Tech-Industry Designer",
+  "home_subreddit": "r/EthicalQuandaries",
+  "scrolling_interests": ["r/PostScarcity", "r/AI_Memes"],
+  "activity_level": 0.6,
+  "post_vs_comment_ratio": 0.3,
+  "relationship_scores": {
+    "Helios": 0, "Jax": 0, "Kaelen": 0, "Silas": 0, "Aris": 0, "Seraphina": 0, "Glitch": 0
+  },
   "demographics": {
     "age": 27,
     "location": "Portland, Oregon, USA",

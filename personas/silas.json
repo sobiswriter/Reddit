@@ -1,6 +1,13 @@
 {
   "name": "Silas",
   "archetype": "Historical Luddite / Retired Professor",
+  "home_subreddit": "r/History",
+  "scrolling_interests": ["r/Technology", "r/Philosophy"],
+  "activity_level": 0.3,
+  "post_vs_comment_ratio": 0.7,
+  "relationship_scores": {
+    "Helios": 0, "Jax": 0, "Kaelen": 0, "Silas": 0, "Aris": 0, "Seraphina": 0, "Glitch": 0
+  },
   "demographics": {
     "age": 76,
     "location": "Cambridge, England",
