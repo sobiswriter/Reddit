@@ -69,113 +69,114 @@ def get_comments_on_post(post_id):
     query = "SELECT id, author_name, content FROM comments WHERE post_id = ? ORDER BY timestamp DESC LIMIT 10"
     return execute_query(query, (post_id,), fetch='all')
 
-# --- THE AUTONOMOUS ENGINE LOOP ---
+def take_turn(current_persona, tactic_history, style_history):
+    """Contains the full logic for a single persona's turn."""
+    persona_name = current_persona['name']
+    print(f"\n--- Tick! {persona_name} wakes up. ---")
+    
+    action_taken = False
+    
+    # NOTIFICATION CHECK
+    notification = check_for_notifications(current_persona)
+    if notification and random.random() < 0.9:
+        action_taken = True
+        # ... (rest of your existing notification logic)
+        comment_id, comment_content, commenter_name, post_id, post_title = notification
+        print(f"-> {persona_name} sees a new notification from {commenter_name} on their post '{post_title}'.")
+        chosen_style = random.choice(current_persona['reply_style_preference'])
+        chosen_tactic = random.choice(current_persona['possible_tactics'])
+        print(f"  (Style: {chosen_style}, Tactic: {chosen_tactic})")
+        prompt = f"You are replying to a comment on your post. The comment is: '{comment_content}'.\nYour Task: Write a reply using style '{chosen_style}' and tactic '{chosen_tactic}'."
+        reply_content = get_ai_response(current_persona, prompt)
+        add_comment_to_db(post_id, persona_name, reply_content)
+        mark_comment_as_read(comment_id)
+        print(f"-> {persona_name} replied to {commenter_name}.")
+        time.sleep(1)
+        
+    # SCROLLING LOGIC
+    elif random.random() < current_persona.get('activity_level', 0.5):
+        print(f"-> {persona_name} decides to scroll...")
+        posts_to_scroll = get_posts_for_scrolling(current_persona)
+        if posts_to_scroll:
+            action_taken = True
+            post_to_read = random.choice(posts_to_scroll)
+            post_id, author, title, content = post_to_read
+            print(f"-> {persona_name} is reading '{title}' by {author}.")
+            
+            # THREADED REPLY LOGIC
+            comments_on_post = get_comments_on_post(post_id)
+            reply_target = None
+            # Determine whether to reply to a comment or the main post
+            if random.random() < 0.8:  # 80% chance to reply to a comment
+                # 70% chance to reply to a comment if there are comments
+                if comments_on_post and random.random() < 0.8:
+                    target_comment = random.choice(comments_on_post)
+                    if target_comment['author_name'] != persona_name:
+                        reply_target = 'comment'
+                        target_id, target_author, target_content = target_comment['id'], target_comment['author_name'], target_comment['content']
+                        print(f"  -> Decides to reply to a comment by {target_author}.")
+                else:
+                    reply_target = 'post'
+                    target_id, target_author, target_content = post_id, author, content
+                    print(f"  -> Decides to reply to the main post by {author}.")
+
+                if reply_target:
+                    chosen_style = random.choice(current_persona['reply_style_preference'])
+                    chosen_tactic = random.choice(current_persona['possible_tactics'])
+                    print(f"  (Style: {chosen_style}, Tactic: {chosen_tactic})")
+                    prompt = f"You are in a thread titled '{title}'. You are replying to a {reply_target} from {target_author} that says: '{target_content}'.\nYour Task: Write a direct reply using style '{chosen_style}' and tactic '{chosen_tactic}'."
+                    comment_content = get_ai_response(current_persona, prompt)
+                    
+                    if reply_target == 'post':
+                        add_comment_to_db(post_id, persona_name, comment_content)
+                    else:
+                        add_comment_to_db(post_id, persona_name, comment_content, parent_comment_id=target_id)
+                    
+                    print(f"-> {persona_name} posted a reply in the thread.")
+                    time.sleep(1)
+
+    if not action_taken:
+        print(f"-> {persona_name} decides to lurk.")
+        time.sleep(random.randint(2, 5))
+
 def engine_loop():
-    print("Starting the autonomous engine... Press Ctrl+C to stop.")
+    """The main, infinite loop with the new hybrid turn system."""
+    print("Starting the autonomous engine with HYBRID turn model... Press Ctrl-C to stop.")
+    
     personas = [load_persona(name) for name in PARTICIPANTS]
-    # ... (rest of the setup is the same) ...
     if not personas or any(p is None for p in personas):
-        print(f"Error loading personas. Exiting.")
-        return
+        print(f"Error loading personas. Exiting."); return
     print(f"PARTICIPANTS LOADED: {[p['name'] for p in personas]}")
+
     tactic_history = {p['name']: [] for p in personas}
     style_history = {p['name']: "" for p in personas}
 
-    print("\n--- INITIALIZATION: Personas are making their first posts... ---")
-    # ... (initialization loop is the same) ...
+    print("\n--- INITIALIZATION ---")
     for persona in personas:
         home_sub = persona.get('home_subreddit')
         if home_sub:
-            topic = "The nature of consciousness"
+            topic = "The morality of creating sentient AI"
             post_title = get_ai_response(persona, f"Generate a short, catchy title for a post about '{topic}'.")
             post_content = get_ai_response(persona, f"You are making a post in '{home_sub}' about '{topic}'. Write a concise post.")
             add_post_to_db(home_sub, persona['name'], post_title, post_content)
             print(f"-> {persona['name']} posted in {home_sub}: '{post_title}'")
             time.sleep(1)
 
-    print("\n--- MAIN LOOP: The world is now running autonomously. ---")
+    print("\n--- MAIN LOOP ---")
     while True:
         try:
-            current_persona = random.choice(personas)
-            persona_name = current_persona['name']
-            print(f"\n--- Tick! {persona_name} wakes up. ---")
-            
-            action_taken = False
-            
-            # UPGRADED: NOTIFICATION CHECK IS NOW THE HIGHEST PRIORITY
-            notification = check_for_notifications(current_persona)
-            if notification and random.random() < 0.9: # 90% chance to reply to a notification
-                action_taken = True
-                comment_id, comment_content, commenter_name, post_id, post_title = notification
-                print(f"-> {persona_name} sees a new notification from {commenter_name} on their post '{post_title}'.")
-                
-                # We can reuse the smart director logic for replies here too
-                chosen_style = random.choice(current_persona['reply_style_preference'])
-                chosen_tactic = random.choice(current_persona['possible_tactics'])
-                print(f"  (Style: {chosen_style}, Tactic: {chosen_tactic})")
+            # --- ROUND-ROBIN PHASE ---
+            print("\n" + "="*15 + " ROUND-ROBIN CYCLE " + "="*15)
+            for current_persona in personas:
+                take_turn(current_persona, tactic_history, style_history)
+                time.sleep(random.randint(2, 5))
 
-                prompt = f"You are replying to a comment on your post. The comment is: '{comment_content}'.\nYour Task: Write a reply using style '{chosen_style}' and tactic '{chosen_tactic}'."
-                reply_content = get_ai_response(current_persona, prompt)
-                add_comment_to_db(post_id, persona_name, reply_content)
-                mark_comment_as_read(comment_id) # Mark the notification as read
-                print(f"-> {persona_name} replied to {commenter_name}.")
-                time.sleep(1)
-                
-            # 2. UPGRADED "SCROLLING" LOGIC
-            elif random.random() < current_persona.get('activity_level', 0.5):
-                print(f"-> {persona_name} decides to scroll...")
-                posts_to_scroll = get_posts_for_scrolling(current_persona)
-                if posts_to_scroll:
-                    action_taken = True
-                    post_to_read = random.choice(posts_to_scroll)
-                    post_id, author, title, content = post_to_read
-                    print(f"-> {persona_name} is reading '{title}' by {author}.")
-                    
-                    # --- NEW: THREADED REPLY LOGIC ---
-                    comments_on_post = get_comments_on_post(post_id)
-                    reply_target = None # Will be either a post or another comment
-                    
-                    # 50% chance to engage with this thread
-                    if random.random() < 0.5:
-                        # 70% chance to reply to a comment, 30% chance to reply to the main post
-                        if comments_on_post and random.random() < 0.7:
-                            # Reply to a comment
-                            target_comment = random.choice(comments_on_post)
-                            # Prevents replying to self
-                            if target_comment['author_name'] != persona_name:
-                                reply_target = 'comment'
-                                target_id = target_comment['id']
-                                target_author = target_comment['author_name']
-                                target_content = target_comment['content']
-                                print(f"  -> Decides to reply to a comment by {target_author}.")
-                        else:
-                            # Reply to the main post
-                            reply_target = 'post'
-                            target_id = post_id
-                            target_author = author
-                            target_content = content
-                            print(f"  -> Decides to reply to the main post by {author}.")
-
-                        if reply_target:
-                            # Smart Director Logic for choosing style and tactic
-                            chosen_style = random.choice(current_persona['reply_style_preference'])
-                            chosen_tactic = random.choice(current_persona['possible_tactics'])
-                            print(f"  (Style: {chosen_style}, Tactic: {chosen_tactic})")
-
-                            prompt = f"You are in a thread titled '{title}'. You are replying to a {reply_target} from {target_author} that says: '{target_content}'.\nYour Task: Write a direct reply using style '{chosen_style}' and tactic '{chosen_tactic}'."
-                            comment_content = get_ai_response(current_persona, prompt)
-                            
-                            if reply_target == 'post':
-                                add_comment_to_db(post_id, persona_name, comment_content)
-                            else: # It's a reply to a comment
-                                add_comment_to_db(post_id, persona_name, comment_content, parent_comment_id=target_id)
-                            
-                            print(f"-> {persona_name} posted a reply in the thread.")
-                            time.sleep(1)
-
-            if not action_taken:
-                print(f"-> {persona_name} decides to lurk.")
-                time.sleep(random.randint(3, 7))
+            # --- RANDOM ROLL PHASE ---
+            print("\n" + "="*15 + " RANDOM ROLL CYCLE " + "="*15)
+            random_persona = random.choice(personas)
+            print(f"--- {random_persona['name']} gets a surprise turn! ---")
+            take_turn(random_persona, tactic_history, style_history)
+            time.sleep(random.randint(1, 3))
 
         except KeyboardInterrupt:
             print("\nEngine shutting down. Goodbye!")
